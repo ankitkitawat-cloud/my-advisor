@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Straight Talk Advisor</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --text:#eaecef; --muted:#9aa2af;
+  --accent:#e0574f; --accent2:#3b7ddd; --border:#2a2f3a;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef0f3; --text:#171a21; --muted:#5b6472;
+    --border:#dde1e7;
+  }
+}
+:root[data-theme="dark"]{ --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --text:#eaecef; --muted:#9aa2af; --border:#2a2f3a; }
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{
+  background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  display:flex; flex-direction:column; height:100%;
+}
+header{
+  padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top,0px));
+  background:var(--panel); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+header h1{font-size:16px;margin:0;font-weight:700;}
+header .sub{font-size:11px;color:var(--muted);}
+button.icon{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:6px;}
+#chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.msg{max-width:82%;padding:10px 14px;border-radius:14px;line-height:1.4;font-size:14.5px;white-space:pre-wrap;}
+.user{align-self:flex-end;background:var(--accent2);color:#fff;border-bottom-right-radius:4px;}
+.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--border);border-bottom-left-radius:4px;}
+.bot.err{border-color:var(--accent);color:var(--accent);}
+#inputbar{
+  display:flex;gap:8px;padding:10px;background:var(--panel);border-top:1px solid var(--border);
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+}
+#textIn{flex:1;padding:11px 14px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:15px;outline:none;}
+#micBtn,#sendBtn{width:44px;height:44px;border-radius:50%;border:none;font-size:18px;cursor:pointer;flex-shrink:0;}
+#micBtn{background:var(--accent);color:#fff;}
+#micBtn.listening{animation:pulse 1s infinite;}
+#sendBtn{background:var(--accent2);color:#fff;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,87,79,.6);}70%{box-shadow:0 0 0 12px rgba(224,87,79,0);}100%{box-shadow:0 0 0 0 rgba(224,87,79,0);}}
+#settingsPanel{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:10;padding:16px;
+}
+#settingsPanel.open{display:flex;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;}
+.card h2{margin-top:0;font-size:16px;}
+.card label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px;}
+.card input[type=text],.card select{width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;}
+.card .row{display:flex;gap:8px;margin-top:16px;}
+.card button.primary{flex:1;background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:10px;cursor:pointer;font-size:14px;}
+.card button.secondary{flex:1;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;font-size:14px;}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Straight Talk Advisor</h1>
+    <div class="sub" id="statusLine">No relay connected — tap ⚙ to set up</div>
+  </div>
+  <button class="icon" onclick="openSettings()">⚙</button>
+</header>
+
+<div id="chat"></div>
+
+<div id="inputbar">
+  <button id="micBtn" onclick="toggleMic()">🎤</button>
+  <input id="textIn" type="text" placeholder="Ask anything, straight answers only..." onkeydown="if(event.key==='Enter')sendMessage()">
+  <button id="sendBtn" onclick="sendMessage()">➤</button>
+</div>
+
+<div id="settingsPanel">
+  <div class="card">
+    <h2>Setup</h2>
+
+    <label>Relay Worker URL (from Cloudflare deploy)</label>
+    <input type="text" id="relayUrl" placeholder="https://your-worker.workers.dev">
+    <div class="hint">This holds your AI API key server-side. See the setup guide I gave you.</div>
+
+    <label>Voice</label>
+    <select id="voiceSelect"></select>
+    <div class="hint">Pick a female-sounding voice. Availability depends on your device.</div>
+
+    <label>Auto-speak replies</label>
+    <select id="autoSpeak">
+      <option value="on">On</option>
+      <option value="off">Off</option>
+    </select>
+
+    <div class="row">
+      <button class="secondary" onclick="closeSettings()">Cancel</button>
+      <button class="primary" onclick="saveSettings()">Save</button>
+    </div>
+    <div class="badge" id="relayStatus">Not tested yet</div>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = "You are a blunt, no-sugarcoat senior advisor covering career, life decisions, and minor health/wellness questions. Never flatter, never open with agreement, never say 'great question'. Give direct, evidence-based, sometimes uncomfortable answers first, then reasoning. For anything beyond minor/general health guidance (symptoms, medication, anything serious or ambiguous), explicitly tell the user to see a real doctor and do not attempt to diagnose or treat. Keep answers practical and specific, not generic motivational filler.";
+
+let history = [];
+let recognition, synth = window.speechSynthesis, voices = [];
+
+function loadSettings(){
+  const url = localStorage.getItem('relayUrl') || '';
+  const voiceName = localStorage.getItem('voiceName') || '';
+  const autoSpeak = localStorage.getItem('autoSpeak') || 'on';
+  document.getElementById('relayUrl').value = url;
+  document.getElementById('autoSpeak').value = autoSpeak;
+  updateStatusLine();
+  return {url, voiceName, autoSpeak};
+}
+
+function updateStatusLine(){
+  const url = localStorage.getItem('relayUrl');
+  document.getElementById('statusLine').textContent = url ? 'Connected to relay ✓' : 'No relay connected — tap ⚙ to set up';
+}
+
+function populateVoices(){
+  voices = synth.getVoices();
+  const sel = document.getElementById('voiceSelect');
+  sel.innerHTML = '';
+  const femaleHints = ['female','woman','samantha','victoria','zira','susan','karen','moira','tessa','fiona','google uk english female','google us english'];
+  const sorted = [...voices].sort((a,b)=>{
+    const aF = femaleHints.some(h=>a.name.toLowerCase().includes(h)) ? 0 : 1;
+    const bF = femaleHints.some(h=>b.name.toLowerCase().includes(h)) ? 0 : 1;
+    return aF-bF;
+  });
+  sorted.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = v.name + ' (' + v.lang + ')';
+    sel.appendChild(opt);
+  });
+  const saved = localStorage.getItem('voiceName');
+  if(saved) sel.value = saved;
+}
+if(synth) synth.onvoiceschanged = populateVoices;
+
+function openSettings(){
+  loadSettings();
+  populateVoices();
+  document.getElementById('settingsPanel').classList.add('open');
+}
+function closeSettings(){ document.getElementById('settingsPanel').classList.remove('open'); }
+
+async function saveSettings(){
+  const url = document.getElementById('relayUrl').value.trim();
+  const voiceName = document.getElementById('voiceSelect').value;
+  const autoSpeak = document.getElementById('autoSpeak').value;
+  localStorage.setItem('relayUrl', url);
+  localStorage.setItem('voiceName', voiceName);
+  localStorage.setItem('autoSpeak', autoSpeak);
+  updateStatusLine();
+  const statusEl = document.getElementById('relayStatus');
+  if(url){
+    statusEl.textContent = 'Testing relay...';
+    try{
+      const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({messages:[{role:'user',content:'ping'}], system:'reply with just: pong'})});
+      if(r.ok){ statusEl.textContent = 'Relay reachable ✓'; }
+      else { statusEl.textContent = 'Relay responded with error ' + r.status; }
+    }catch(e){ statusEl.textContent = 'Could not reach relay — check URL/CORS'; }
+  } else {
+    statusEl.textContent = 'No relay set — replies will fail';
+  }
+  closeSettings();
+}
+
+function addMsg(text, who, isErr){
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + who + (isErr ? ' err' : '');
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function speak(text){
+  const autoSpeak = localStorage.getItem('autoSpeak') || 'on';
+  if(autoSpeak === 'off' || !synth) return;
+  synth.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  const voiceName = localStorage.getItem('voiceName');
+  const v = voices.find(v=>v.name===voiceName);
+  if(v) utter.voice = v;
+  utter.rate = 1.02;
+  synth.speak(utter);
+}
+
+async function sendMessage(){
+  const input = document.getElementById('textIn');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  addMsg(text, 'user');
+  history.push({role:'user', content:text});
+
+  const url = localStorage.getItem('relayUrl');
+  if(!url){
+    addMsg('No relay URL set. Tap ⚙ and paste your deployed Worker URL first — I cannot answer without it.', 'bot', true);
+    return;
+  }
+
+  addMsg('...', 'bot');
+  const chat = document.getElementById('chat');
+  const placeholder = chat.lastChild;
+
+  try{
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: history, system: SYSTEM_PROMPT })
+    });
+    if(!res.ok) throw new Error('Relay error ' + res.status);
+    const data = await res.json();
+    const reply = data.reply || (data.content && data.content.map(c=>c.text||'').join('')) || 'No reply text returned.';
+    placeholder.textContent = reply;
+    placeholder.classList.remove('err');
+    history.push({role:'assistant', content:reply});
+    speak(reply);
+  }catch(e){
+    placeholder.textContent = 'Failed to reach relay: ' + e.message + '. Check the Worker URL and that it is deployed.';
+    placeholder.classList.add('err');
+  }
+}
+
+function toggleMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ addMsg('Voice input not supported in this browser. Use Chrome on Android/desktop.', 'bot', true); return; }
+  const micBtn = document.getElementById('micBtn');
+  if(recognition && recognition._active){
+    recognition.stop();
+    return;
+  }
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition._active = true;
+  micBtn.classList.add('listening');
+  recognition.onresult = (e)=>{
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('textIn').value = transcript;
+    sendMessage();
+  };
+  recognition.onend = ()=>{ micBtn.classList.remove('listening'); recognition._active=false; };
+  recognition.onerror = ()=>{ micBtn.classList.remove('listening'); recognition._active=false; };
+  recognition.start();
+}
+
+loadSettings();
+addMsg('Set your relay URL in ⚙ first, then ask me anything. Straight answers, no sugarcoating. For anything beyond minor health stuff, I will tell you to see an actual doctor — not negotiable.', 'bot');
+</script>
+</body>
+</html>
