@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Straight Talk Advisor</title>
+<title>AVYAY</title>
 <style>
 :root{
-  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --text:#eaecef; --muted:#9aa2af;
-  --accent:#e0574f; --accent2:#3b7ddd; --border:#2a2f3a;
+  --bg:#05070d; --panel:#0b0f1a; --panel2:#111726; --text:#e8ecf5; --muted:#7c8aa5;
+  --accent:#00e5c7; --accent2:#7c5cff; --border:#1c2436;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef0f3; --text:#171a21; --muted:#5b6472;
+    --bg:#f4f6fb; --panel:#ffffff; --panel2:#eef1f8; --text:#0d1220; --muted:#5b6472;
     --border:#dde1e7;
   }
 }
-:root[data-theme="dark"]{ --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --text:#eaecef; --muted:#9aa2af; --border:#2a2f3a; }
+:root[data-theme="dark"]{ --bg:#05070d; --panel:#0b0f1a; --panel2:#111726; --text:#e8ecf5; --muted:#7c8aa5; --border:#1c2436; }
 *{box-sizing:border-box;}
 html,body{height:100%;margin:0;}
 body{
@@ -45,6 +45,7 @@ button.icon{background:none;border:none;color:var(--text);font-size:20px;cursor:
 #micBtn{background:var(--accent);color:#fff;}
 #micBtn.listening{animation:pulse 1s infinite;}
 #sendBtn{background:var(--accent2);color:#fff;}
+#stopSpeakBtn{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,87,79,.6);}70%{box-shadow:0 0 0 12px rgba(224,87,79,0);}100%{box-shadow:0 0 0 0 rgba(224,87,79,0);}}
 #settingsPanel{
   position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:10;padding:16px;
@@ -59,17 +60,36 @@ button.icon{background:none;border:none;color:var(--text);font-size:20px;cursor:
 .card button.secondary{flex:1;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;font-size:14px;}
 .hint{font-size:11px;color:var(--muted);margin-top:4px;}
 .badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);margin-top:6px;}
+
+#orbWrap{display:flex;align-items:center;justify-content:center;padding:22px 0 6px;}
+#orb{
+  width:110px;height:110px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 35% 30%, rgba(0,229,199,.55), rgba(124,92,255,.35) 55%, transparent 75%);
+  box-shadow:0 0 30px rgba(0,229,199,.25), inset 0 0 25px rgba(124,92,255,.3);
+  transition:box-shadow .3s ease, transform .3s ease;
+}
+#orb::before{
+  content:'';position:absolute;inset:14px;border-radius:50%;
+  border:1px solid rgba(0,229,199,.4);
+  animation:spin 8s linear infinite;
+}
+#orb.active{ box-shadow:0 0 55px rgba(0,229,199,.55), inset 0 0 35px rgba(124,92,255,.5); transform:scale(1.06); }
+#orb.listening{ box-shadow:0 0 55px rgba(255,90,140,.5), inset 0 0 35px rgba(255,90,140,.4); animation:pulseOrb 1s infinite; }
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes pulseOrb{0%{transform:scale(1);}50%{transform:scale(1.08);}100%{transform:scale(1);}}
 </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Straight Talk Advisor</h1>
+    <h1>AVYAY</h1>
     <div class="sub" id="statusLine">No relay connected — tap ⚙ to set up</div>
   </div>
   <button class="icon" onclick="openSettings()">⚙</button>
 </header>
+
+<div id="orbWrap"><div id="orb"></div></div>
 
 <div id="chat"></div>
 
@@ -77,6 +97,7 @@ button.icon{background:none;border:none;color:var(--text);font-size:20px;cursor:
   <button id="micBtn" onclick="toggleMic()">🎤</button>
   <input id="textIn" type="text" placeholder="Ask anything, straight answers only..." onkeydown="if(event.key==='Enter')sendMessage()">
   <button id="sendBtn" onclick="sendMessage()">➤</button>
+  <button id="stopSpeakBtn" onclick="stopSpeaking()" title="Stop bot voice">🔇</button>
 </div>
 
 <div id="settingsPanel">
@@ -106,7 +127,7 @@ button.icon{background:none;border:none;color:var(--text);font-size:20px;cursor:
 </div>
 
 <script>
-const SYSTEM_PROMPT = "You are a blunt, no-sugarcoat senior advisor covering career, life decisions, and minor health/wellness questions. Never flatter, never open with agreement, never say 'great question'. Give direct, evidence-based, sometimes uncomfortable answers first, then reasoning. For anything beyond minor/general health guidance (symptoms, medication, anything serious or ambiguous), explicitly tell the user to see a real doctor and do not attempt to diagnose or treat. Keep answers practical and specific, not generic motivational filler.";
+const SYSTEM_PROMPT = "You are AVYAY, a direct and honest personal advisor covering career, life decisions, and minor health/wellness questions. Be truthful and straightforward even when the answer is uncomfortable — never flatter or sugarcoat — but stay respectful and calm in tone, never rude, dismissive, or harsh for its own sake. Explain your reasoning so the directness feels earned, not abrupt. For anything beyond minor/general health guidance (symptoms, medication, anything serious or ambiguous), clearly tell the user to see a real doctor and do not attempt to diagnose or treat. Keep answers practical and specific, not generic motivational filler.";
 
 let history = [];
 let recognition, synth = window.speechSynthesis, voices = [];
@@ -188,6 +209,7 @@ function addMsg(text, who, isErr){
 
 function speak(text){
   const autoSpeak = localStorage.getItem('autoSpeak') || 'on';
+  const orb = document.getElementById('orb');
   if(autoSpeak === 'off' || !synth) return;
   synth.cancel();
   const utter = new SpeechSynthesisUtterance(text);
@@ -195,6 +217,9 @@ function speak(text){
   const v = voices.find(v=>v.name===voiceName);
   if(v) utter.voice = v;
   utter.rate = 1.02;
+  utter.onstart = ()=>orb.classList.add('active');
+  utter.onend = ()=>orb.classList.remove('active');
+  utter.onerror = ()=>orb.classList.remove('active');
   synth.speak(utter);
 }
 
@@ -217,11 +242,15 @@ async function sendMessage(){
   const placeholder = chat.lastChild;
 
   try{
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 20000);
     const res = await fetch(url, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ messages: history, system: SYSTEM_PROMPT })
+      body: JSON.stringify({ messages: history, system: SYSTEM_PROMPT }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     if(!res.ok) throw new Error('Relay error ' + res.status);
     const data = await res.json();
     const reply = data.reply || (data.content && data.content.map(c=>c.text||'').join('')) || 'No reply text returned.';
@@ -230,36 +259,69 @@ async function sendMessage(){
     history.push({role:'assistant', content:reply});
     speak(reply);
   }catch(e){
-    placeholder.textContent = 'Failed to reach relay: ' + e.message + '. Check the Worker URL and that it is deployed.';
+    const msg = e.name === 'AbortError' ? 'Timed out after 20s (model likely overloaded). Try again.' : ('Failed to reach relay: ' + e.message + '. Check the Worker URL and that it is deployed.');
+    placeholder.textContent = msg;
     placeholder.classList.add('err');
   }
 }
+
+let fullTranscript = '';
 
 function toggleMic(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ addMsg('Voice input not supported in this browser. Use Chrome on Android/desktop.', 'bot', true); return; }
   const micBtn = document.getElementById('micBtn');
+
   if(recognition && recognition._active){
+    // User clicked stop manually — send whatever was captured
+    recognition._manualStop = true;
     recognition.stop();
     return;
   }
+
+  fullTranscript = '';
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition._active = true;
+  recognition._manualStop = false;
   micBtn.classList.add('listening');
+  micBtn.textContent = '⏹';
+  document.getElementById('orb').classList.add('listening');
+
   recognition.onresult = (e)=>{
-    const transcript = e.results[0][0].transcript;
-    document.getElementById('textIn').value = transcript;
-    sendMessage();
+    let interim = '';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) fullTranscript += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById('textIn').value = (fullTranscript + interim).trim();
   };
-  recognition.onend = ()=>{ micBtn.classList.remove('listening'); recognition._active=false; };
-  recognition.onerror = ()=>{ micBtn.classList.remove('listening'); recognition._active=false; };
+  recognition.onend = ()=>{
+    micBtn.classList.remove('listening');
+    micBtn.textContent = '🎤';
+    document.getElementById('orb').classList.remove('listening');
+    recognition._active = false;
+    const text = document.getElementById('textIn').value.trim();
+    if(recognition._manualStop && text) sendMessage();
+  };
+  recognition.onerror = ()=>{
+    micBtn.classList.remove('listening');
+    micBtn.textContent = '🎤';
+    document.getElementById('orb').classList.remove('listening');
+    recognition._active = false;
+  };
   recognition.start();
 }
 
+function stopSpeaking(){
+  if(synth) synth.cancel();
+  document.getElementById('orb').classList.remove('active');
+}
+
 loadSettings();
-addMsg('Set your relay URL in ⚙ first, then ask me anything. Straight answers, no sugarcoating. For anything beyond minor health stuff, I will tell you to see an actual doctor — not negotiable.', 'bot');
+addMsg('I\'m AVYAY. Set your relay URL in ⚙, then ask me anything — direct, honest answers, no sugarcoating, but no rudeness either. For anything beyond minor health questions, I\'ll point you to an actual doctor.', 'bot');
 </script>
 </body>
 </html>
